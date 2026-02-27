@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Money Tracker Ultimate</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+    font-family: Arial;
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color:white;
+    text-align:center;
+    padding:30px;
+}
+.container{
+    background:#1b2a35;
+    padding:20px;
+    border-radius:15px;
+    width:450px;
+    margin:auto;
+    box-shadow:0 0 20px #00ffcc;
+}
+input, select, button{
+    padding:10px;
+    margin:8px;
+    border:none;
+    border-radius:8px;
+}
+button{
+    background:#00c853;
+    color:white;
+    cursor:pointer;
+    font-weight:bold;
+}
+button:hover{
+    background:#00e676;
+}
+.history{
+    margin-top:15px;
+    text-align:left;
+    max-height:150px;
+    overflow:auto;
+}
+.status{
+    font-size:18px;
+    margin-top:10px;
+    font-weight:bold;
+}
+canvas{
+    margin-top:20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>💰 Money Tracker Ultimate</h1>
+
+<div class="container">
+
+<input type="number" id="amount" placeholder="จำนวนเงิน">
+
+<select id="type">
+    <option value="income">รายรับ</option>
+    <option value="expense">รายจ่าย</option>
+</select>
+
+<select id="category">
+    <option value="อาหาร">อาหาร</option>
+    <option value="เดินทาง">เดินทาง</option>
+    <option value="บันเทิง">บันเทิง</option>
+    <option value="อื่นๆ">อื่น ๆ</option>
+</select>
+
+<input type="month" id="month">
+
+<br>
+<button onclick="addTransaction()">เพิ่มรายการ</button>
+
+<div class="status" id="status"></div>
+
+<div class="history" id="history"></div>
+
+<canvas id="mainChart"></canvas>
+<canvas id="categoryChart"></canvas>
+
+</div>
+
+<script>
+
+let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+let mainChart, categoryChart;
+
+function saveData(){
+    localStorage.setItem("transactions", JSON.stringify(transactions));
+}
+
+function addTransaction(){
+    let amount = Number(document.getElementById("amount").value);
+    let type = document.getElementById("type").value;
+    let category = document.getElementById("category").value;
+    let month = document.getElementById("month").value;
+
+    if(amount <= 0 || !month) return alert("กรุณากรอกข้อมูลให้ครบ");
+
+    transactions.push({amount,type,category,month});
+    saveData();
+    updateUI();
+}
+
+function updateUI(){
+
+    let historyDiv = document.getElementById("history");
+    historyDiv.innerHTML = "";
+
+    let selectedMonth = document.getElementById("month").value;
+
+    let income = 0;
+    let expense = 0;
+    let categoryData = {};
+
+    transactions
+    .filter(t=> t.month === selectedMonth)
+    .forEach(t=>{
+
+        historyDiv.innerHTML += 
+        `<p>${t.type=="income"?"💵":"💸"} ${t.category} - ${t.amount} บาท</p>`;
+
+        if(t.type=="income") income+=t.amount;
+        else{
+            expense+=t.amount;
+            categoryData[t.category] = (categoryData[t.category]||0) + t.amount;
+        }
+    });
+
+    analyzeFinance(income,expense);
+    drawMainChart(income,expense);
+    drawCategoryChart(categoryData);
+}
+
+function analyzeFinance(income,expense){
+    let status = document.getElementById("status");
+    let balance = income - expense;
+
+    if(balance > 1000){
+        status.innerHTML = "🟢 การเงินดีมาก เหลือ " + balance + " บาท";
+    }else if(balance >= 0){
+        status.innerHTML = "🟡 ระวังการใช้เงิน เหลือ " + balance + " บาท";
+    }else{
+        status.innerHTML = "🔴 ติดลบ " + Math.abs(balance) + " บาท";
+    }
+}
+
+function drawMainChart(income,expense){
+    if(mainChart) mainChart.destroy();
+
+    mainChart = new Chart(document.getElementById("mainChart"), {
+        type: 'doughnut',
+        data: {
+            labels: ['รายรับ','รายจ่าย'],
+            datasets: [{
+                data: [income, expense],
+                backgroundColor: ['#00e676','#ff1744']
+            }]
+        }
+    });
+}
+
+function drawCategoryChart(categoryData){
+    if(categoryChart) categoryChart.destroy();
+
+    categoryChart = new Chart(document.getElementById("categoryChart"), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(categoryData),
+            datasets: [{
+                label: 'รายจ่ายตามหมวด',
+                data: Object.values(categoryData),
+                backgroundColor: '#00b0ff'
+            }]
+        }
+    });
+}
+
+updateUI();
+
+</script>
+
+</body>
+</html>
