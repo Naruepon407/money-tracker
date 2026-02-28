@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>Money Tracker Ultimate</title>
+<title>Money Tracker Ultimate Pro</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -17,35 +17,57 @@ body{
     background:#1b2a35;
     padding:20px;
     border-radius:15px;
-    width:450px;
+    width:500px;
     margin:auto;
     box-shadow:0 0 20px #00ffcc;
 }
 input, select, button{
-    padding:10px;
-    margin:8px;
+    padding:8px;
+    margin:5px;
     border:none;
     border-radius:8px;
 }
 button{
-    background:#00c853;
-    color:white;
     cursor:pointer;
     font-weight:bold;
 }
-button:hover{
+.add-btn{
+    background:#00c853;
+    color:white;
+}
+.add-btn:hover{
     background:#00e676;
+}
+.reset-btn{
+    background:#ff1744;
+    color:white;
+}
+.reset-btn:hover{
+    background:#ff5252;
+}
+.edit-btn{
+    background:#ffc107;
+}
+.delete-btn{
+    background:#ff1744;
+    color:white;
 }
 .history{
     margin-top:15px;
     text-align:left;
-    max-height:150px;
+    max-height:200px;
     overflow:auto;
 }
 .status{
     font-size:18px;
     margin-top:10px;
     font-weight:bold;
+}
+.item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:5px;
 }
 canvas{
     margin-top:20px;
@@ -55,31 +77,26 @@ canvas{
 
 <body>
 
-<h1>💰 Money Tracker Ultimate</h1>
+<h1>💰 Money Tracker Ultimate Pro</h1>
 
 <div class="container">
 
 <input type="number" id="amount" placeholder="จำนวนเงิน">
 
-<select id="type">
+<select id="type" onchange="updateCategoryOptions()">
     <option value="income">รายรับ</option>
     <option value="expense">รายจ่าย</option>
 </select>
 
-<select id="category">
-    <option value="อาหาร">อาหาร</option>
-    <option value="เดินทาง">เดินทาง</option>
-    <option value="บันเทิง">บันเทิง</option>
-    <option value="อื่นๆ">อื่น ๆ</option>
-</select>
+<select id="category"></select>
 
-<input type="month" id="month">
+<input type="month" id="month" onchange="updateUI()">
 
 <br>
-<button onclick="addTransaction()">เพิ่มรายการ</button>
+<button onclick="addTransaction()" class="add-btn">เพิ่มรายการ</button>
+<button onclick="resetData()" class="reset-btn">ล้างข้อมูลทั้งหมด</button>
 
 <div class="status" id="status"></div>
-
 <div class="history" id="history"></div>
 
 <canvas id="mainChart"></canvas>
@@ -96,6 +113,24 @@ function saveData(){
     localStorage.setItem("transactions", JSON.stringify(transactions));
 }
 
+function updateCategoryOptions(){
+    let type = document.getElementById("type").value;
+    let categorySelect = document.getElementById("category");
+    categorySelect.innerHTML = "";
+
+    let incomeCategories = ["เงินเดือน","งานเสริม","ขายของ","โบนัส","อื่น ๆ"];
+    let expenseCategories = ["อาหาร","เดินทาง","บันเทิง","ค่าน้ำค่าไฟ","อื่น ๆ"];
+
+    let categories = type === "income" ? incomeCategories : expenseCategories;
+
+    categories.forEach(cat=>{
+        let option = document.createElement("option");
+        option.value = cat;
+        option.textContent = cat;
+        categorySelect.appendChild(option);
+    });
+}
+
 function addTransaction(){
     let amount = Number(document.getElementById("amount").value);
     let type = document.getElementById("type").value;
@@ -107,6 +142,7 @@ function addTransaction(){
     transactions.push({amount,type,category,month});
     saveData();
     updateUI();
+    document.getElementById("amount").value = "";
 }
 
 function updateUI(){
@@ -122,10 +158,33 @@ function updateUI(){
 
     transactions
     .filter(t=> t.month === selectedMonth)
-    .forEach(t=>{
+    .forEach((t,index)=>{
 
-        historyDiv.innerHTML += 
-        `<p>${t.type=="income"?"💵":"💸"} ${t.category} - ${t.amount} บาท</p>`;
+        let item = document.createElement("div");
+        item.className="item";
+
+        let text = document.createElement("span");
+        text.innerHTML = `${t.type=="income"?"💵":"💸"} ${t.category} - ${t.amount} บาท`;
+
+        let btnGroup = document.createElement("span");
+
+        let editBtn = document.createElement("button");
+        editBtn.innerText="แก้ไข";
+        editBtn.className="edit-btn";
+        editBtn.onclick=()=>editTransaction(index);
+
+        let deleteBtn = document.createElement("button");
+        deleteBtn.innerText="ลบ";
+        deleteBtn.className="delete-btn";
+        deleteBtn.onclick=()=>deleteTransaction(index);
+
+        btnGroup.appendChild(editBtn);
+        btnGroup.appendChild(deleteBtn);
+
+        item.appendChild(text);
+        item.appendChild(btnGroup);
+
+        historyDiv.appendChild(item);
 
         if(t.type=="income") income+=t.amount;
         else{
@@ -137,6 +196,23 @@ function updateUI(){
     analyzeFinance(income,expense);
     drawMainChart(income,expense);
     drawCategoryChart(categoryData);
+}
+
+function editTransaction(index){
+    let newAmount = prompt("แก้ไขจำนวนเงิน:", transactions[index].amount);
+    if(newAmount !== null && newAmount > 0){
+        transactions[index].amount = Number(newAmount);
+        saveData();
+        updateUI();
+    }
+}
+
+function deleteTransaction(index){
+    if(confirm("ต้องการลบรายการนี้?")){
+        transactions.splice(index,1);
+        saveData();
+        updateUI();
+    }
 }
 
 function analyzeFinance(income,expense){
@@ -154,7 +230,6 @@ function analyzeFinance(income,expense){
 
 function drawMainChart(income,expense){
     if(mainChart) mainChart.destroy();
-
     mainChart = new Chart(document.getElementById("mainChart"), {
         type: 'doughnut',
         data: {
@@ -169,7 +244,6 @@ function drawMainChart(income,expense){
 
 function drawCategoryChart(categoryData){
     if(categoryChart) categoryChart.destroy();
-
     categoryChart = new Chart(document.getElementById("categoryChart"), {
         type: 'bar',
         data: {
@@ -183,6 +257,15 @@ function drawCategoryChart(categoryData){
     });
 }
 
+function resetData(){
+    if(confirm("คุณแน่ใจหรือไม่ว่าต้องการล้างข้อมูลทั้งหมด?")){
+        localStorage.removeItem("transactions");
+        transactions = [];
+        updateUI();
+    }
+}
+
+updateCategoryOptions();
 updateUI();
 
 </script>
